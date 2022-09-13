@@ -1,0 +1,224 @@
+import React, { useState } from 'react';
+import * as Yup from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { TextField, Button, Container, Grid } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import { FormProvider, RHFTextField, RHFSelect } from '../../components/hook-form';
+import EnteryConfirmation from './EnteryConfirmation';
+import SuccessAlert from '../../components/alert/SuccessAlert';
+import ErrorAlert from '../../components/alert/ErrorAlert';
+
+const validationSchema = Yup.object({
+  // address: yup
+  //   .string('Enter Ip Address')
+  //   .matches(/^(?!0)(?!.*\.$)((1?\d?\d|25[0-5]|2[0-4]\d)(\.|$)){4}$/, 'Enter a valid IP address')
+  //   .required('IP Address is required'),
+  entries: Yup.array().of(
+    Yup.object().shape({
+      value: Yup.string()
+        .required('Value is required')
+        .matches(/^(\d*\.)?\d+$/, 'Enter a valid value')
+    })
+  )
+});
+
+export default function LedgerManualEntries() {
+  localStorage.setItem('currentPage', 0);
+  localStorage.setItem('brokerCurrentPage', 0);
+  const [confirmation, setConfirmation] = useState(false);
+  const [isSuccess, setSuccess] = useState(false);
+  const [alertMsg, setAlertMsg] = useState('');
+  const [isOpen, setOpen] = useState(false);
+  const [isError, setError] = useState(false);
+  const [paylaod, setPaylaod] = useState('');
+  const initialValues = {
+    memo: '',
+    approvedBy: '',
+    comment: '',
+    entries: [{ fromBookId: '', bookID: '', assetID: '', value: '' }],
+  };
+
+  const methods = useForm({
+    mode: 'onChange',
+    resolver: yupResolver(validationSchema),
+    defaultValues: initialValues,
+  });
+  const { reset, control, register, handleSubmit, formState: { errors } } = methods;
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'entries',
+  });
+
+  const onSubmit = (data) => {
+    const val = []
+    data.entries.map((entry) => {
+      const obj1 = {
+        "bookID": entry?.fromBookId,
+        "value": `-${entry?.value}`,
+        "assetID": entry?.assetID
+      }
+      const obj2 = {
+        "bookID": entry?.bookID,
+        "value": entry?.value,
+        "assetID": entry?.assetID
+      }
+      return val.push(obj1,obj2);
+    })
+
+    const newData = {
+      "memo": data?.memo,
+      "approvedBy": data?.approvedBy,
+      "comment": data?.comment,
+      "entries": val
+    }
+
+    setPaylaod(newData);
+    setConfirmation(true);
+  };
+  return (
+    <>
+      <Container sx={{ justifyContent: 'left' }} style={{ width: '100%' }}>
+        <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
+          <h3>Ledger manual entries</h3>
+          <Grid style={{ display: 'flex', width: '85%' }} columnGap={3}>
+            <TextField
+              autoComplete="off"
+              name="memo"
+              required
+              placeholder="Memo here"
+              fullWidth
+              label="Memo"
+              {...register(`memo`)}
+              style={{ marginTop: 25, width: '85%' }}
+            />
+            <TextField
+              name="approvedBy"
+              autoComplete="off"
+              required
+              placeholder="Approved by here"
+              fullWidth
+              label="Approved By"
+              {...register(`approvedBy`)}
+              style={{ marginTop: 25, width: '85%' }}
+            />
+            <TextField
+              autoComplete="off"
+              name="comment"
+              placeholder="Comment here"
+              required
+              fullWidth
+              label="Comment"
+              {...register(`comment`)}
+              style={{ marginTop: 25, width: '85%' }}
+            />
+          </Grid>
+          <Grid style={{ marginTop: '25px' }}>
+            <h3>Add entries</h3>
+          </Grid>
+          <Grid style={{ width: '100%', justifyContent: 'space-evenly', marginTop: '3%' }} rowGap={3}>
+            {fields.map((item, index) => {
+              return (
+                <Grid style={{ display: 'flex' }} rowGap={5} key={index}>
+                  <Grid style={{ listStyle: 'none', display: 'flex', width: '85%', marginTop: '3%' }} columnGap={5}>
+                    <TextField
+                      autoComplete="off"
+                      name="fromBookId"
+                      placeholder="From book id here"
+                      fullWidth
+                      required
+                      label="From Book ID"
+                      {...register(`entries.${index}.fromBookId`)}
+                    />
+                    <TextField
+                      autoComplete="off"
+                      name="bookID"
+                      placeholder="To book id here"
+                      fullWidth
+                      required
+                      label="To Book ID"
+                      {...register(`entries.${index}.bookID`)}
+                    />
+                    <TextField
+                      autoComplete="off"
+                      name="assetID"
+                      placeholder="Asset here"
+                      fullWidth
+                      required
+                      label="Asset"
+                      {...register(`entries.${index}.assetID`)}
+                    />
+                    <TextField
+                      autoComplete="off"
+                      name="value"
+                      placeholder="Value here"
+                      fullWidth
+                      required
+                      label="Value"
+                      {...register(`entries.${index}.value`,
+                        {
+                          pattern: {
+                            value: /^(\d*\.)?\d+$/,
+                            message: 'Please enter a number',
+                          },
+                        }
+                      )}
+                      error={errors && errors.message}
+                      helperText={errors.entries?.[index]?.value?.message}
+                    />
+                  </Grid>
+                  <Grid style={{ display: 'flex', border: 'none' }}>
+                    {index > 0 && (
+                      <Button
+                        label="Delete"
+                        type="button"
+                        onClick={() => remove(index)}
+                        disabled={index === 0}
+                        style={{ marginTop: 25 }}
+                      >
+                        <DeleteOutlineIcon style={{ color: 'red' }} />
+                      </Button>
+                    )}
+
+                    {index === fields.length - 1 && (
+                      <Button
+                        label="ADD"
+                        style={{ marginTop: 25 }}
+                        type="button"
+                        onClick={() => {
+                          append({ bookID: '', assetID: '', value: '' });
+                        }}
+                      >
+                        <AddCircleOutlineIcon />
+                      </Button>
+                    )}
+                  </Grid>
+                </Grid>
+              );
+            })}
+            <Grid style={{ justifyContent: 'flex-end', display: 'flex', marginTop: 45, marginRight: '5%' }}>
+              <Button type="submit" variant="contained">
+                SUBMIT
+              </Button>
+            </Grid>
+          </Grid>
+        </FormProvider>
+      </Container>
+      {confirmation && (
+        <EnteryConfirmation
+          isOpen={confirmation}
+          setOpen={setConfirmation}
+          paylaod={paylaod}
+          setSuccess={setSuccess}
+          setAlertMsg={setAlertMsg}
+          setError={setError}
+          reset={reset}
+        />
+      )}
+      {<SuccessAlert isSuccess={isSuccess} setSuccess={setSuccess} alertMsg={alertMsg} />}
+      <ErrorAlert isError={isError} setError={setError} alertMsg={alertMsg} />
+    </>
+  );
+}
